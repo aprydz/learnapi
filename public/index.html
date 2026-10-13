@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Belajar API - Frontend Mini</title>
+  <style>
+    * { box-sizing: border-box; font-family: sans-serif; }
+    body { max-width: 700px; margin: 30px auto; padding: 0 16px; }
+    h1 { text-align: center; }
+    .card { border: 1px solid #ddd; padding: 12px; margin: 8px 0; border-radius: 8px; }
+    .error { color: #b91c1c; background: #fef2f2; padding: 10px; border-radius: 6px; }
+    .success { color: #065f46; background: #ecfdf5; padding: 10px; border-radius: 6px; }
+    .loading { color: #666; }
+    button { padding: 8px 14px; cursor: pointer; margin: 4px; }
+    input { padding: 8px; margin: 4px; }
+    pre { background: #f4f4f5; padding: 10px; border-radius: 6px; overflow: auto; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h1>🛍️ Belajar API - Toko Mini</h1>
+  <p>Frontend ini <b>tidak punya data sendiri</b>. Semua data diambil dari API lewat <code>fetch()</code>. Ini contoh nyata kegunaan API di website.</p>
+
+  <div>
+    <button onclick="loadProducts()">🔄 Load Produk (GET)</button>
+    <button onclick="demoError404()">❌ Demo Error 404</button>
+    <button onclick="demoError500()">💥 Demo Error 500</button>
+  </div>
+
+  <h3>Tambah Produk (POST)</h3>
+  <input id="nama" placeholder="Nama produk">
+  <input id="harga" type="number" placeholder="Harga">
+  <input id="stok" type="number" placeholder="Stok">
+  <button onclick="addProduct()">Tambah</button>
+  <div id="formMsg"></div>
+
+  <h3>Hasil:</h3>
+  <div id="status"></div>
+  <div id="list"></div>
+  <pre id="raw"></pre>
+
+  <script>
+    const API = "http://localhost:3000/api/products";
+
+    // Helper tampilkan status
+    function setStatus(html, isError = false) {
+      document.getElementById("status").innerHTML = `<div class="${isError ? 'error' : 'success'}">${html}</div>`;
+    }
+
+    // GET - Ambil semua produk
+    async function loadProducts() {
+      document.getElementById("status").innerHTML = '<div class="loading">⏳ Loading...</div>';
+      document.getElementById("list").innerHTML = "";
+      try {
+        const res = await fetch(API);
+        const json = await res.json();
+        document.getElementById("raw").textContent = JSON.stringify(json, null, 2);
+
+        if (!res.ok) throw new Error(json.message);
+
+        setStatus(`✅ Sukses (${res.status}) - Total: ${json.total} produk`);
+        document.getElementById("list").innerHTML = json.data.map(p => `
+          <div class="card">
+            <b>#${p.id} ${p.nama}</b> - Rp${p.harga.toLocaleString("id-ID")} (stok: ${p.stok})
+            <button onclick="deleteProduct(${p.id})">Hapus</button>
+          </div>
+        `).join("");
+      } catch (err) {
+        // Solusi error di frontend: tampilkan pesan ramah, jangan biarkan blank
+        setStatus(`❌ Error: ${err.message}`, true);
+      }
+    }
+
+    // POST - Tambah produk
+    async function addProduct() {
+      const nama = document.getElementById("nama").value;
+      const harga = parseInt(document.getElementById("harga").value);
+      const stok = parseInt(document.getElementById("stok").value) || 0;
+      const msg = document.getElementById("formMsg");
+      msg.innerHTML = "";
+
+      try {
+        const res = await fetch(API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nama, harga, stok })
+        });
+        const json = await res.json();
+        document.getElementById("raw").textContent = JSON.stringify(json, null, 2);
+
+        if (!res.ok) {
+          // 400 Bad Request - tampilkan pesan validasi di bawah form (solusi)
+          msg.innerHTML = `<div class="error">❌ ${json.message}</div>`;
+          return;
+        }
+
+        msg.innerHTML = `<div class="success">✅ Produk ditambahkan!</div>`;
+        loadProducts();
+      } catch (err) {
+        msg.innerHTML = `<div class="error">❌ Gagal konek ke API: ${err.message} (cek apakah server jalan?)</div>`;
+      }
+    }
+
+    // DELETE
+    async function deleteProduct(id) {
+      if (!confirm(`Hapus produk #${id}?`)) return;
+      const res = await fetch(`${API}/${id}`, { method: "DELETE" });
+      const json = await res.json();
+      document.getElementById("raw").textContent = JSON.stringify(json, null, 2);
+      loadProducts();
+    }
+
+    // Demo error 404
+    async function demoError404() {
+      const res = await fetch(`${API}/99999`);
+      const json = await res.json();
+      document.getElementById("raw").textContent = `Status: ${res.status}\n` + JSON.stringify(json, null, 2);
+      setStatus(`Demo 404: ${json.message} (Status ${res.status})`, true);
+    }
+
+    // Demo error 500
+    async function demoError500() {
+      const res = await fetch("http://localhost:3000/api/error-demo");
+      const json = await res.json();
+      document.getElementById("raw").textContent = `Status: ${res.status}\n` + JSON.stringify(json, null, 2);
+      setStatus(`Demo 500: ${json.message} (Status ${res.status}) - Server tetap hidup!`, true);
+    }
+
+    // Load awal
+    loadProducts();
+  </script>
+</body>
+</html>
